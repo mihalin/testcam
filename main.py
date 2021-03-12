@@ -2,251 +2,59 @@ from aiohttp import web
 
 routes = web.RouteTableDef()
 
-# language=js
-script = """
-/*
-Copyright 2017 Google Inc.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-    http://www.apache.org/licenses/LICENSE-2.0
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-'use strict';
-
-// This code is adapted from
-// https://cdn.rawgit.com/Miguelao/demos/master/imagecapture.html
-
-// window.isSecureContext could be used for Chrome
-var isSecureOrigin = location.protocol === 'https:' ||
-location.host === 'localhost';
-if (!isSecureOrigin) {
-  alert('getUserMedia() must be run from a secure origin: HTTPS or localhost.' +
-    '\n\nChanging protocol to HTTPS');
-  location.protocol = 'HTTPS';
-}
-
-var constraints;
-var imageCapture;
-var mediaStream;
-
-var grabFrameButton = document.querySelector('button#grabFrame');
-var takePhotoButton = document.querySelector('button#takePhoto');
-
-var canvas = document.querySelector('canvas');
-var img = document.querySelector('img');
-var video = document.querySelector('video');
-var videoSelect = document.querySelector('select#videoSource');
-var zoomInput = document.querySelector('input#zoom');
-
-grabFrameButton.onclick = grabFrame;
-takePhotoButton.onclick = takePhoto;
-videoSelect.onchange = getStream;
-zoomInput.oninput = setZoom;
-
-// Get a list of available media input (and output) devices
-// then get a MediaStream for the currently selected input device
-navigator.mediaDevices.enumerateDevices()
-  .then(gotDevices)
-  .catch(error => {
-    console.log('enumerateDevices() error: ', error);
-  })
-  .then(getStream);
-
-// From the list of media devices available, set up the camera source <select>,
-// then get a video stream from the default camera source.
-function gotDevices(deviceInfos) {
-  for (var i = 0; i !== deviceInfos.length; ++i) {
-    var deviceInfo = deviceInfos[i];
-    console.log('Found media input or output device: ', deviceInfo);
-    var option = document.createElement('option');
-    option.value = deviceInfo.deviceId;
-    if (deviceInfo.kind === 'videoinput') {
-      option.text = deviceInfo.label || 'Camera ' + (videoSelect.length + 1);
-      videoSelect.appendChild(option);
-    }
-  }
-}
-
-// Get a video stream from the currently selected camera source.
-function getStream() {
-  if (mediaStream) {
-    mediaStream.getTracks().forEach(track => {
-      track.stop();
-    });
-  }
-  var videoSource = videoSelect.value;
-  constraints = {
-    video: {deviceId: videoSource ? {exact: videoSource} : undefined}
-  };
-  navigator.mediaDevices.getUserMedia(constraints)
-    .then(gotStream)
-    .catch(error => {
-      console.log('getUserMedia error: ', error);
-    });
-}
-
-// Display the stream from the currently selected camera source, and then
-// create an ImageCapture object, using the video from the stream.
-function gotStream(stream) {
-  console.log('getUserMedia() got stream: ', stream);
-  mediaStream = stream;
-  video.srcObject = stream;
-  video.classList.remove('hidden');
-  imageCapture = new ImageCapture(stream.getVideoTracks()[0]);
-  getCapabilities();
-}
-
-// Get the PhotoCapabilities for the currently selected camera source.
-function getCapabilities() {
-  imageCapture.getPhotoCapabilities().then(function(capabilities) {
-    console.log('Camera capabilities:', capabilities);
-    if (capabilities.zoom.max > 0) {
-      zoomInput.min = capabilities.zoom.min;
-      zoomInput.max = capabilities.zoom.max;
-      zoomInput.value = capabilities.zoom.current;
-      zoomInput.classList.remove('hidden');
-    }
-  }).catch(function(error) {
-    console.log('getCapabilities() error: ', error);
-  });
-}
-
-// Get an ImageBitmap from the currently selected camera source and
-// display this with a canvas element.
-function grabFrame() {
-  imageCapture.grabFrame().then(function(imageBitmap) {
-    console.log('Grabbed frame:', imageBitmap);
-    canvas.width = imageBitmap.width;
-    canvas.height = imageBitmap.height;
-    canvas.getContext('2d').drawImage(imageBitmap, 0, 0);
-    canvas.classList.remove('hidden');
-  }).catch(function(error) {
-    console.log('grabFrame() error: ', error);
-  });
-}
-
-function setZoom() {
-  imageCapture.setOptions({
-    zoom: zoomInput.value
-  });
-}
-
-// Get a Blob from the currently selected camera source and
-// display this with an img element.
-function takePhoto() {
-  imageCapture.takePhoto().then(function(blob) {
-    console.log('Took photo:', blob);
-    img.classList.remove('hidden');
-    img.src = URL.createObjectURL(blob);
-  }).catch(function(error) {
-    console.log('takePhoto() error: ', error);
-  });
-}
-"""
-
-
-
-#language=HTML
-page = """<!DOCTYPE html>
-
-<!--
-Copyright 2017 Google Inc.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-    http://www.apache.org/licenses/LICENSE-2.0
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
--->
-
-<html lang="en">
-<head>
-
-<script>
-//  philipwalton.com/articles/the-google-analytics-setup-i-use-on-every-site-i-build
-window.ga = window.ga || function() {
-  (ga.q = ga.q || []).push(arguments);
-};
-ga('create', 'UA-33848682-1', 'auto');
-ga('set', 'transport', 'beacon');
-ga('send', 'pageview');
-</script>
-
-<meta charset="utf-8">
-<meta name="description" content="Simplest possible examples of HTML, CSS and JavaScript.">
-<meta name="author" content="//samdutton.com">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta itemprop="name" content="simpl.info: simplest possible examples of HTML, CSS and JavaScript">
-<meta itemprop="image" content="/images/icons/icon192.png">
-<meta id="theme-color" name="theme-color" content="#fff">
-
-<link rel="icon" href="/images/icons/icon192.png">
-
-<base target="_blank">
-
-
-<title>Image Capture</title>
-
-<link rel="canonical" href="https://simpl.info/mediarecorder" />
-
-<link rel="stylesheet" href="../css/main.css">
-<link rel="stylesheet" href="css/main.css">
-
-</head>
-
-<body>
-
-  <div id="container">
-
-    <h1><a href="../index.html" title="simpl.info home page">simpl.info</a> Image&nbsp;Capture</h1>
-
-    <p>This demo requires Chrome 52 or later with <strong>Experimental Web Platform features</strong> enabled: chrome://flags/#enable-experimental-web-platform-features. This is also enabled by default in Chrome 59 or later.</p>
-
-    <p>For more information see the Image Capture API <a href="https://w3c.github.io/mediacapture-image/index.html" title="W3C Image Capture API Editor's Draft">Editor's&nbsp;Draft</a>.</p>
-
-    <div>
-      <button id="grabFrame">Grab Frame</button>
-      <button id="takePhoto">Take Photo</button>
-      <div class="select">
-        <label for="videoSource">Video source: </label><select id="videoSource"></select>
-      </div>
-      <input class="hidden" id="zoom" type="range" step="20">
-    </div>
-
-    <video autoplay playsinline class="hidden"></video>
-    <img>
-    <canvas class="hidden"></canvas>
-
-    <a href="https://github.com/samdutton/simpl/blob/gh-pages/imagecapture" title="View source for this page on GitHub" id="viewSource">View source on GitHub</a>
-
-  </div>
-
-  <script>""" + script + """</script>
-
-</body>
-</html>
-"""
-
-
-
 
 @routes.get('/')
-async def hello(request):
-    return web.Response(text=page, content_type="html")
+async def start(request):
+    return web.Response(text="""
+    <html>
+    <head>
+    <meta charset="UTF-8">
+    </head>
+    <body>
+    <a href="/test1">Пример 1, через форму</a>
+    <br>
+    <a href="/test2">Пример 2, через WebRTC</a>
+    </body>
+    </html>
+    """, content_type="html")
+
+
+@routes.get("/test1")
+async def test1(request):
+    """
+    Просто через форму
+    :param request:
+    :return:
+    """
+    return web.Response(text="""
+    <html>
+    <head></head>
+    <body>
+    <form action='/foo' method='POST'>
+    <input type="file" accept="image/*;capture=camera">
+    <br><br>
+    <input type='submit'>
+    </form>
+    </body>
+    </html>
+    """, content_type="html")
 
 
 @routes.post("/foo")
 async def post(request):
     return web.Response(text="ok")
+
+
+@routes.get("/test2")
+async def test2(request):
+    """
+    WebRTS с сайта https://github.com/mdn/samples-server/tree/master/s/webrtc-capturestill
+    https://developer.mozilla.org/en-US/docs/Web/API/WebRTC_API/Taking_still_photos
+    :param request:
+    :return:
+    """
+    with open("static/webrts/index.html", "r") as page:
+        return web.Response(text=page.read(), content_type="html")
 
 
 if __name__ == '__main__':
