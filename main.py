@@ -57,6 +57,8 @@ async def test2(request):
         return web.Response(text=page.read(), content_type="html")
 
 
+routes.static("/static", "static")
+
 if __name__ == '__main__':
     app = web.Application()
     app.add_routes(routes)
